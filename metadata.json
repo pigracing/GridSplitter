@@ -1,0 +1,5 @@
+{
+  "name": "GridSplitter 6x4",
+  "description": "A specialized tool to split a composite image grid into 24 individual high-quality image files.",
+  "requestFramePermissions": []
+}
