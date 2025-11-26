@@ -7,9 +7,11 @@ export interface SlicedImage {
   fileName: string;
 }
 
-export interface GridConfig {
-  columns: number;
+export interface GridOption {
+  cols: number;
   rows: number;
+  label: string;
+  description: string;
 }
 
 export enum AppStatus {
