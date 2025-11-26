@@ -1,106 +1,89 @@
+import React from 'react';
+import { Download, Check } from 'lucide-react';
 import { SlicedImage } from '../types';
-import JSZip from 'jszip';
 
-export const sliceImage = (
-  file: File,
-  cols: number,
-  rows: number
-): Promise<SlicedImage[]> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    
-    img.onload = () => {
-      // Clean up memory
-      URL.revokeObjectURL(objectUrl);
+interface ImageGridProps {
+  images: SlicedImage[];
+  onDownload: (image: SlicedImage) => void;
+  cols: number;
+  rows: number;
+}
 
-      const pieceWidth = img.width / cols;
-      const pieceHeight = img.height / rows;
-      const images: SlicedImage[] = [];
-      let processedCount = 0;
-      const totalPieces = cols * rows;
+const ImageGrid: React.FC<ImageGridProps> = ({ images, onDownload, cols, rows }) => {
+  const [downloadedIds, setDownloadedIds] = React.useState<Set<number>>(new Set());
 
-      // Iterate through grid
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const canvas = document.createElement('canvas');
-          canvas.width = pieceWidth;
-          canvas.height = pieceHeight;
-          const ctx = canvas.getContext('2d');
+  const handleDownload = (img: SlicedImage) => {
+    onDownload(img);
+    setDownloadedIds(prev => new Set(prev).add(img.id));
+    setTimeout(() => {
+        setDownloadedIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(img.id);
+            return newSet;
+        });
+    }, 2000);
+  };
 
-          if (!ctx) {
-            reject(new Error('无法获取 Canvas 上下文'));
-            return;
-          }
+  // Dynamically determine grid class based on columns
+  const getGridClass = () => {
+    switch (cols) {
+      case 4: return 'md:grid-cols-4';
+      case 5: return 'md:grid-cols-5';
+      case 6: return 'md:grid-cols-6';
+      default: return 'md:grid-cols-6';
+    }
+  };
 
-          // Draw the specific section
-          ctx.drawImage(
-            img,
-            c * pieceWidth, // source x
-            r * pieceHeight, // source y
-            pieceWidth, // source width
-            pieceHeight, // source height
-            0, // dest x
-            0, // dest y
-            pieceWidth, // dest width
-            pieceHeight // dest height
-          );
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <span className="w-2 h-8 bg-indigo-500 rounded-full inline-block"></span>
+          切图结果 ({images.length} 张)
+        </h2>
+        <span className="text-sm text-zinc-400 font-mono bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
+          {cols} 列 &times; {rows} 行
+        </span>
+      </div>
 
-          // Convert to Blob
-          // Force output to PNG
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const id = r * cols + c + 1;
-              const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-              
-              images.push({
-                id,
-                url: URL.createObjectURL(blob),
-                blob,
-                row: r,
-                col: c,
-                fileName: `split_${id}_${nameWithoutExt}.png`
-              });
-            }
+      <div className={`grid grid-cols-3 sm:grid-cols-4 ${getGridClass()} gap-2 sm:gap-4 select-none`}>
+        {images.map((img) => (
+          <div 
+            key={img.id}
+            className="group relative aspect-square bg-zinc-800 rounded-lg overflow-hidden border border-zinc-700/50 hover:border-indigo-500/50 transition-all duration-300"
+          >
+            <img 
+              src={img.url} 
+              alt={`Slice ${img.id}`} 
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Number Overlay */}
+            <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm">
+              #{img.id}
+            </div>
 
-            processedCount++;
-            if (processedCount === totalPieces) {
-              // Sort by ID to ensure correct order
-              images.sort((a, b) => a.id - b.id);
-              resolve(images);
-            }
-          }, 'image/png');
-        }
-      }
-    };
-
-    img.onerror = (err) => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('图片加载失败，请尝试上传有效的图片文件。'));
-    };
-
-    img.src = objectUrl;
-  });
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+              <button
+                onClick={() => handleDownload(img)}
+                className={`
+                  p-2 rounded-full transform scale-90 group-hover:scale-100 transition-all duration-200
+                  ${downloadedIds.has(img.id) 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-white text-zinc-900 hover:bg-indigo-500 hover:text-white'
+                  }
+                `}
+                title="下载此图片"
+              >
+                {downloadedIds.has(img.id) ? <Check size={18} /> : <Download size={18} />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
-export const downloadBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
-export const downloadZip = async (images: SlicedImage[], zipFilename: string) => {
-  const zip = new JSZip();
-  
-  images.forEach((img) => {
-    zip.file(img.fileName, img.blob);
-  });
-
-  const content = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(content, zipFilename);
-};
+export default ImageGrid;
