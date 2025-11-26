@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, RotateCcw, Download, Scissors, Archive } from 'lucide-react';
+import { Layers, RotateCcw, Download, Scissors, Archive, Grid3X3, Grid2X2, LayoutGrid } from 'lucide-react';
 import Dropzone from './components/Dropzone';
 import ImageGrid from './components/ImageGrid';
 import { sliceImage, downloadBlob, downloadZip } from './utils/imageProcessing';
-import { SlicedImage, AppStatus } from './types';
+import { SlicedImage, AppStatus, GridOption } from './types';
+
+const GRID_OPTIONS: GridOption[] = [
+  { cols: 6, rows: 4, label: '6 x 4', description: '24 张 (横向)' },
+  { cols: 5, rows: 5, label: '5 x 5', description: '25 张 (方形)' },
+  { cols: 4, rows: 6, label: '4 x 6', description: '24 张 (纵向)' },
+];
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [slicedImages, setSlicedImages] = useState<SlicedImage[]>([]);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [isZipping, setIsZipping] = useState(false);
+  const [currentGrid, setCurrentGrid] = useState<GridOption>(GRID_OPTIONS[0]);
 
   const handleFileSelect = async (file: File) => {
     setOriginalFile(file);
@@ -17,7 +24,7 @@ const App: React.FC = () => {
     
     // Artificial delay for better UX feel (optional, but smooths transition)
     try {
-      const results = await sliceImage(file, 6, 4);
+      const results = await sliceImage(file, currentGrid.cols, currentGrid.rows);
       setSlicedImages(results);
       setStatus(AppStatus.COMPLETE);
     } catch (error) {
@@ -40,7 +47,7 @@ const App: React.FC = () => {
     setIsZipping(true);
     try {
       const baseName = originalFile.name.substring(0, originalFile.name.lastIndexOf('.')) || originalFile.name;
-      await downloadZip(slicedImages, `${baseName}_split.zip`);
+      await downloadZip(slicedImages, `${baseName}_${currentGrid.label.replace(/\s/g, '')}.zip`);
     } catch (error) {
       console.error("Failed to create zip", error);
     } finally {
@@ -68,7 +75,7 @@ const App: React.FC = () => {
               GridSplitter 切图工具
             </h1>
             <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-xs text-zinc-400 border border-zinc-700 font-mono">
-              6x4
+              {currentGrid.label}
             </span>
           </div>
           
@@ -91,9 +98,35 @@ const App: React.FC = () => {
                 <span className="text-indigo-500">一键搞定</span>
               </h2>
               <p className="text-lg text-zinc-400">
-                上传一张 6x4 规格的拼图，我们将自动将其切割成 24 张高清大图供您下载。
+                选择切图规格，上传图片，即可自动分割并下载高清大图。
               </p>
             </div>
+
+            {/* Grid Selection */}
+            <div className="grid grid-cols-3 gap-4 mb-8 w-full max-w-lg">
+              {GRID_OPTIONS.map((option) => (
+                <button
+                  key={option.label}
+                  onClick={() => setCurrentGrid(option)}
+                  className={`
+                    flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200
+                    ${currentGrid.label === option.label 
+                      ? 'bg-indigo-600/10 border-indigo-500 text-white shadow-lg shadow-indigo-500/10 scale-105' 
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800'
+                    }
+                  `}
+                >
+                  <div className="mb-2">
+                    {option.cols === 6 && <LayoutGrid size={24} />}
+                    {option.cols === 5 && <Grid3X3 size={24} />}
+                    {option.cols === 4 && <Grid2X2 size={24} />}
+                  </div>
+                  <span className="font-bold text-lg leading-none mb-1">{option.label}</span>
+                  <span className="text-xs opacity-60">{option.description}</span>
+                </button>
+              ))}
+            </div>
+
             <Dropzone onFileSelect={handleFileSelect} isProcessing={false} />
           </div>
         )}
@@ -107,7 +140,9 @@ const App: React.FC = () => {
                  <Scissors size={20} className="text-indigo-400" />
                </div>
              </div>
-             <p className="mt-6 text-lg font-medium text-zinc-300 animate-pulse">正在切图中...</p>
+             <p className="mt-6 text-lg font-medium text-zinc-300 animate-pulse">
+               正在进行 {currentGrid.label} 切图...
+             </p>
            </div>
         )}
 
@@ -129,6 +164,7 @@ const App: React.FC = () => {
                  <div>
                     <p className="text-sm font-medium text-white">原始图片</p>
                     <p className="text-xs text-zinc-500">{originalFile?.name}</p>
+                    <p className="text-xs text-indigo-400 mt-1">{currentGrid.label} 切割模式</p>
                  </div>
               </div>
 
@@ -168,7 +204,9 @@ const App: React.FC = () => {
             {/* Grid */}
             <ImageGrid 
               images={slicedImages} 
-              onDownload={(img) => downloadBlob(img.blob, img.fileName)} 
+              onDownload={(img) => downloadBlob(img.blob, img.fileName)}
+              cols={currentGrid.cols}
+              rows={currentGrid.rows}
             />
           </div>
         )}
