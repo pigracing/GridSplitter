@@ -47,16 +47,19 @@ export const sliceImage = (
           );
 
           // Convert to Blob
+          // Force output to PNG
           canvas.toBlob((blob) => {
             if (blob) {
               const id = r * cols + c + 1;
+              const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+              
               images.push({
                 id,
                 url: URL.createObjectURL(blob),
                 blob,
                 row: r,
                 col: c,
-                fileName: `split_${id}_${file.name}`
+                fileName: `split_${id}_${nameWithoutExt}.png`
               });
             }
 
@@ -66,7 +69,7 @@ export const sliceImage = (
               images.sort((a, b) => a.id - b.id);
               resolve(images);
             }
-          }, file.type);
+          }, 'image/png');
         }
       }
     };
