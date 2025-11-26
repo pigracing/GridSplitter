@@ -1,14 +1,15 @@
 import React from 'react';
 import { Download, Check } from 'lucide-react';
 import { SlicedImage } from '../types';
-import { downloadBlob } from '../utils/imageProcessing';
 
 interface ImageGridProps {
   images: SlicedImage[];
   onDownload: (image: SlicedImage) => void;
+  cols: number;
+  rows: number;
 }
 
-const ImageGrid: React.FC<ImageGridProps> = ({ images, onDownload }) => {
+const ImageGrid: React.FC<ImageGridProps> = ({ images, onDownload, cols, rows }) => {
   const [downloadedIds, setDownloadedIds] = React.useState<Set<number>>(new Set());
 
   const handleDownload = (img: SlicedImage) => {
@@ -23,19 +24,29 @@ const ImageGrid: React.FC<ImageGridProps> = ({ images, onDownload }) => {
     }, 2000);
   };
 
+  // Dynamically determine grid class based on columns
+  const getGridClass = () => {
+    switch (cols) {
+      case 4: return 'md:grid-cols-4';
+      case 5: return 'md:grid-cols-5';
+      case 6: return 'md:grid-cols-6';
+      default: return 'md:grid-cols-6';
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <span className="w-2 h-8 bg-indigo-500 rounded-full inline-block"></span>
-          切图结果 (24 张)
+          切图结果 ({images.length} 张)
         </h2>
-        <span className="text-sm text-zinc-400">
-          6 列 &times; 4 行
+        <span className="text-sm text-zinc-400 font-mono bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
+          {cols} 列 &times; {rows} 行
         </span>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-4 select-none">
+      <div className={`grid grid-cols-3 sm:grid-cols-4 ${getGridClass()} gap-2 sm:gap-4 select-none`}>
         {images.map((img) => (
           <div 
             key={img.id}
